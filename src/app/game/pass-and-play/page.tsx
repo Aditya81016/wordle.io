@@ -16,16 +16,35 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
+import {
+  Accordion,
+  AccordionContent,
+  AccordionItem,
+  AccordionTrigger,
+} from "@/components/ui/accordion";
+import {
+  Drawer,
+  DrawerClose,
+  DrawerContent,
+  DrawerDescription,
+  DrawerFooter,
+  DrawerHeader,
+  DrawerTitle,
+  DrawerTrigger,
+} from "@/components/ui/drawer";
+
 import Link from "next/link";
 import { linkTo } from "@/config";
-import { PauseIcon } from "@radix-ui/react-icons";
+import { Cross1Icon, Cross2Icon, PauseIcon } from "@radix-ui/react-icons";
 import { Button } from "@/components/ui/button";
+import { Card } from "@/components/ui/card";
 
 export type PassAndPlayStates = {
   grid: BoxData[][];
   currentPlayer: boolean;
   scores: [number, number];
   selectedBoxId: string;
+  words: object;
 };
 
 export default class PassAndPlay extends Component<any, PassAndPlayStates> {
@@ -39,24 +58,25 @@ export default class PassAndPlay extends Component<any, PassAndPlayStates> {
     currentPlayer: false,
     scores: [0, 0] as [number, number],
     selectedBoxId: "box-0-0",
+    words: {},
   };
 
-  render(): ReactNode {
-    const { grid, scores, currentPlayer } = this.state;
+  ScoreBoard = () => {
+    const { scores } = this.state;
     return (
-      <main className="h-[100dvh] w-full flex flex-col justify-center items-center gap-5 p-5">
+      <>
         <div className="flex w-full p-5 justify-between">
           <div>Lefty: {scores[0]}</div>
           <div>Righty: {scores[1]}</div>
         </div>
-        <Board
-          grid={grid}
-          onBoxClick={this.onBoxClick}
-          selectedBox={this.selectedBoxPos}
-        />
-        <Keyboard onKeyClick={this.onKeyClick} />
+      </>
+    );
+  };
 
-        {/* Pause */}
+  PauseButton = () => {
+    const { scores } = this.state;
+    return (
+      <>
         <AlertDialog>
           <AlertDialogTrigger asChild>
             <Button size={"icon"} variant={"outline"}>
@@ -93,7 +113,78 @@ export default class PassAndPlay extends Component<any, PassAndPlayStates> {
             </AlertDialogFooter>
           </AlertDialogContent>
         </AlertDialog>
+      </>
+    );
+  };
 
+  Log = () => {
+    const { words } = this.state;
+    return (
+      <Accordion type="single" collapsible>
+        {Object.keys(words).map((label, i) => (
+          <AccordionItem value={String(label)} key={i}>
+            <AccordionTrigger>{String(label)}</AccordionTrigger>
+            <AccordionContent>
+              <div className="max-h-[30vh] overflow-y-scroll">
+                {/* @ts-ignore */}
+                {words[label]}
+              </div>
+            </AccordionContent>
+          </AccordionItem>
+        ))}
+      </Accordion>
+    );
+  };
+
+  Drawer = () => {
+    return (
+      <Drawer>
+        <DrawerTrigger asChild className="md:hidden">
+          <Button>Logs</Button>
+        </DrawerTrigger>
+        <DrawerContent>
+          <DrawerHeader>
+            <DrawerTitle>Logs</DrawerTitle>
+            <DrawerDescription>
+              <this.Log />
+            </DrawerDescription>
+          </DrawerHeader>
+          <DrawerFooter>
+            {/* <Button>Submit</Button> */}
+            <DrawerClose>
+              <Button size="icon" variant="outline">
+                <Cross2Icon />
+              </Button>
+            </DrawerClose>
+          </DrawerFooter>
+        </DrawerContent>
+      </Drawer>
+    );
+  };
+
+  render(): ReactNode {
+    const { grid, scores, currentPlayer } = this.state;
+    return (
+      <main className="h-[100dvh] w-full flex justify-center items-center gap-5 p-5">
+        <div className="h-full w-full max-w-sm flex flex-col justify-center items-center gap-5">
+          <this.ScoreBoard />
+          <Board
+            grid={grid}
+            onBoxClick={this.onBoxClick}
+            selectedBox={this.selectedBoxPos}
+          />
+          <Keyboard onKeyClick={this.onKeyClick} />
+          <div className="flex gap-5">
+            <this.PauseButton />
+            <this.Drawer />
+          </div>
+        </div>
+        <div className="w-full h-full max-md:hidden">
+          <Card className="h-full p-5 overflow-y-scroll">
+            <div className="text-xl font-bold">Logs</div>
+            <this.Log />
+          </Card>
+        </div>
         {/* Game Over */}
         <AlertDialog>
           <AlertDialogTrigger id="game-over-trigger" className="hidden">
@@ -123,8 +214,6 @@ export default class PassAndPlay extends Component<any, PassAndPlayStates> {
             </AlertDialogFooter>
           </AlertDialogContent>
         </AlertDialog>
-
-        {/* <Button size={"max"}>Submit</Button> */}
       </main>
     );
   }
@@ -171,6 +260,7 @@ export default class PassAndPlay extends Component<any, PassAndPlayStates> {
       verticalStart,
     } = helper;
     if (horizontalWord !== "") {
+      this.insertWord(horizontalWord);
       const row = this.selectedBoxPos[0];
       const col =
         horizontalString.indexOf(horizontalWord) + horizontalStart + 1;
@@ -180,6 +270,7 @@ export default class PassAndPlay extends Component<any, PassAndPlayStates> {
       this.setState({ grid });
     }
     if (verticalWord !== "") {
+      this.insertWord(verticalWord);
       const col = this.selectedBoxPos[1];
       const row = verticalString.indexOf(verticalWord) + verticalStart + 1;
       for (let i = 0; i < verticalWord.length; i++) {
@@ -203,6 +294,37 @@ export default class PassAndPlay extends Component<any, PassAndPlayStates> {
     ) {
       this.gameOver();
     }
+  };
+
+  insertWord = async (word: string) => {
+    const response = await fetch(
+      `https://api.dictionaryapi.dev/api/v2/entries/en/${word}`
+    ).then(async (res) => await res.json());
+
+    const definitions: string[] = [];
+    response.forEach((entry: any) => {
+      return entry.meanings.forEach((meaning: any) => {
+        meaning.definitions.forEach((definition: any) => {
+          definitions.push(definition.definition);
+        });
+      });
+    });
+
+    this.setState({
+      words: {
+        [word]: (
+          <ul className="flex flex-col w-full list-disc list-inside justify-start items-start pl-5">
+            {definitions.map((definition: string, i: number) => (
+              <li key={i} className="text-xs text-card-foreground/80 text-left">
+                {definition}
+              </li>
+            ))}
+          </ul>
+        ),
+        ...this.state.words,
+      },
+    });
+    console.log(response);
   };
 
   gameOver = () => {

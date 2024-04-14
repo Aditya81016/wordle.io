@@ -52,15 +52,21 @@ export class GridHelper {
 
     for (let i = 0; i < this.horizontalList.length; i++) {
       const word = this.horizontalList[i].toLowerCase();
-      if (dictionary.includes(word) || dictionary.includes(reverse(word))) {
+      if (dictionary.includes(word)) {
         this.horizontalWord = word;
+        break;
+      } else if (dictionary.includes(reverse(word))) {
+        this.horizontalWord = reverse(word);
         break;
       }
     }
     for (let i = 0; i < this.verticalList.length; i++) {
       const word = this.verticalList[i].toLowerCase();
-      if (dictionary.includes(word) || dictionary.includes(reverse(word))) {
+      if (dictionary.includes(word)) {
         this.verticalWord = word;
+        break;
+      } else if (dictionary.includes(reverse(word))) {
+        this.verticalWord = reverse(word);
         break;
       }
     }
